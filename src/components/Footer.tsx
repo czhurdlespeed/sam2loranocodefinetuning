@@ -1,0 +1,142 @@
+"use client";
+
+import React from "react";
+import Image from "next/image";
+
+function decodeEmail(encoded: string): string {
+  try {
+    return atob(encoded);
+  } catch (e) {
+    return encoded;
+  }
+}
+
+interface MailToProps {
+  to: string;
+  subject?: string;
+  cc?: string | string[];
+  body?: string;
+  label: string;
+  obfuscated: boolean;
+}
+
+function MailTo({ to, subject, cc, body, label, obfuscated }: MailToProps) {
+  const params: string[] = [];
+
+  const decodedTo = obfuscated ? decodeEmail(to) : to;
+  const decodedCc =
+    obfuscated && cc
+      ? Array.isArray(cc)
+        ? cc.map(decodeEmail).join(",")
+        : decodeEmail(cc)
+      : Array.isArray(cc)
+      ? cc.join(",")
+      : cc;
+
+  if (subject) {
+    params.push(`subject=${encodeURIComponent(subject)}`);
+  }
+
+  if (decodedCc) {
+    params.push(`cc=${encodeURIComponent(decodedCc)}`);
+  }
+
+  if (body) {
+    params.push(`body=${encodeURIComponent(body)}`);
+  }
+
+  const queryString = params.join("&");
+  const mailtoLink = `mailto:${decodedTo}${
+    queryString ? `?${queryString}` : ""
+  }`;
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    window.location.href = mailtoLink;
+  };
+
+  return (
+    <a
+      href="#"
+      onClick={handleClick}
+      className="text-white text-base no-underline hover:text-orange-500 transition-colors duration-300"
+    >
+      {label}
+    </a>
+  );
+}
+
+export default function Footer() {
+  const obfuscatedTo = "aW5mb0BjYWx2aW53ZXR6ZWwuZGV2Cg==";
+
+  return (
+    <footer className="w-screen mt-8 ml-[calc(50%-50vw)] py-8 bg-gray-700 dark:bg-black">
+      <ul className="list-none p-0 m-0 flex flex-row flex-wrap justify-evenly items-center">
+        <li>
+          <MailTo
+            to={obfuscatedTo}
+            subject="Request Access to SAM2 Webapp"
+            body={`I would like to request access to the SAM2 web application.\r\n\r\nSincerely,\r\n\r\n<Your Name Here>`}
+            label="Request Access"
+            obfuscated={true}
+          />
+        </li>
+        <li>
+          <a
+            href="https://marci.eecs.utk.edu/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Image
+              src="/marci.png"
+              alt="MARCI Lab Logo"
+              width={100}
+              height={100}
+              className="w-24 hover:drop-shadow-[0_0_2em_rgba(255,130,0,1)] hover:scale-105 transition-all duration-300"
+            />
+          </a>
+        </li>
+        <li>
+          <a
+            href="https://github.com/czhurdlespeed"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Github Icon Profile Link"
+            className="text-white hover:text-orange-500 transition-colors duration-300"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 448 512"
+              width="24"
+              height="24"
+              fill="currentColor"
+              aria-hidden="true"
+              className="fill-orange-500 w-10 h-10 hover:animate-[wiggle-scale_0.2s_ease-in-out_infinite]"
+            >
+              <title>Github Icon Profile Link</title>
+              <path d="M448 96c0-35.3-28.7-64-64-64L64 32C28.7 32 0 60.7 0 96L0 416c0 35.3 28.7 64 64 64l320 0c35.3 0 64-28.7 64-64l0-320zM265.8 407.7c0-1.8 0-6 .1-11.6 .1-11.4 .1-28.8 .1-43.7 0-15.6-5.2-25.5-11.3-30.7 37-4.1 76-9.2 76-73.1 0-18.2-6.5-27.3-17.1-39 1.7-4.3 7.4-22-1.7-45-13.9-4.3-45.7 17.9-45.7 17.9-26.6-7.5-56.6-7.5-83.2 0 0 0-31.8-22.2-45.7-17.9-9.1 22.9-3.5 40.6-1.7 45-10.6 11.7-15.6 20.8-15.6 39 0 63.6 37.3 69 74.3 73.1-4.8 4.3-9.1 11.7-10.6 22.3-9.5 4.3-33.8 11.7-48.3-13.9-9.1-15.8-25.5-17.1-25.5-17.1-16.2-.2-1.1 10.2-1.1 10.2 10.8 5 18.4 24.2 18.4 24.2 9.7 29.7 56.1 19.7 56.1 19.7 0 9 .1 21.7 .1 30.6 0 4.8 .1 8.6 .1 10 0 4.3-3 9.5-11.5 8-66-22.1-112.2-84.9-112.2-158.3 0-91.8 70.2-161.5 162-161.5S388 165.6 388 257.4c.1 73.4-44.7 136.3-110.7 158.3-8.4 1.5-11.5-3.7-11.5-8zm-90.5-54.8c-.2-1.5 1.1-2.8 3-3.2 1.9-.2 3.7 .6 3.9 1.9 .3 1.3-1 2.6-3 3-1.9 .4-3.7-.4-3.9-1.7zm-9.1 3.2c-2.2 .2-3.7-.9-3.7-2.4 0-1.3 1.5-2.4 3.5-2.4 1.9-.2 3.7 .9 3.7 2.4 0 1.3-1.5 2.4-3.5 2.4zm-14.3-2.2c-1.9-.4-3.2-1.9-2.8-3.2s2.4-1.9 4.1-1.5c2 .6 3.3 2.1 2.8 3.4-.4 1.3-2.4 1.9-4.1 1.3zm-12.5-7.3c-1.5-1.3-1.9-3.2-.9-4.1 .9-1.1 2.8-.9 4.3 .6 1.3 1.3 1.8 3.3 .9 4.1-.9 1.1-2.8 .9-4.3-.6zm-8.5-10c-1.1-1.5-1.1-3.2 0-3.9 1.1-.9 2.8-.2 3.7 1.3 1.1 1.5 1.1 3.3 0 4.1-.9 .6-2.6 0-3.7-1.5zm-6.3-8.8c-1.1-1.3-1.3-2.8-.4-3.5 .9-.9 2.4-.4 3.5 .6 1.1 1.3 1.3 2.8 .4 3.5-.9 .9-2.4 .4-3.5-.6zm-6-6.4c-1.3-.6-1.9-1.7-1.5-2.6 .4-.6 1.5-.9 2.8-.4 1.3 .7 1.9 1.8 1.5 2.6-.4 .9-1.7 1.1-2.8 .4z" />
+            </svg>
+          </a>
+        </li>
+        <li>
+          <a
+            href="https://www.linkedin.com/in/calvinwetzel/"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="LinkedIn Icon Profile Link"
+            className="text-white hover:text-orange-500 transition-colors duration-300"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 448 512"
+              className="fill-orange-500 w-10 h-10 hover:animate-[wiggle-scale_0.2s_ease-in-out_infinite]"
+            >
+              <title>LinkedIn Icon Profile Link</title>
+              <path d="M64 32C28.7 32 0 60.7 0 96L0 416c0 35.3 28.7 64 64 64l320 0c35.3 0 64-28.7 64-64l0-320c0-35.3-28.7-64-64-64L64 32zm5 170.2l66.5 0 0 213.8-66.5 0 0-213.8zm71.7-67.7a38.5 38.5 0 1 1 -77 0 38.5 38.5 0 1 1 77 0zM317.9 416l0-104c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9l0 105.8-66.4 0 0-213.8 63.7 0 0 29.2 .9 0c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9l0 117.2-66.4 0z" />
+            </svg>
+          </a>
+        </li>
+      </ul>
+    </footer>
+  );
+}
