@@ -247,7 +247,6 @@ export default function Config() {
     const url = trainingApi.getDownloadUrl(jobId);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

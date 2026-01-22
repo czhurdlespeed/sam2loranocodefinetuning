@@ -102,7 +102,6 @@ export function JobsDropdown({ onJobsFetched }: JobsDropdownProps) {
       const url = trainingApi.getDownloadUrl(job.jobId);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
