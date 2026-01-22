@@ -61,21 +61,8 @@ export const trainingApi = {
     return response.json();
   },
 
-  async downloadCheckpoint(jobId: string, sessionToken: string | null) {
-    if (!sessionToken) {
-      throw new Error("Not authenticated");
-    }
-    // Only send jobId - userId is derived from session on the server
-    const response = await fetch(
-      `${API_BASE_URL}/download?jobId=${encodeURIComponent(jobId)}`,
-      {
-        headers: { Authorization: `Bearer ${sessionToken}` },
-      }
-    );
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.blob();
+  getDownloadUrl(jobId: string): string {
+    return `${API_BASE_URL}/download?jobId=${encodeURIComponent(jobId)}`;
   },
 
   async markJobComplete(jobId: string, status: "completed" | "failed", r2Key?: string, sessionToken: string | null = null) {

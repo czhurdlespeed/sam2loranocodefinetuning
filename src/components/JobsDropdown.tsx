@@ -91,7 +91,7 @@ export function JobsDropdown({ onJobsFetched }: JobsDropdownProps) {
   }, [session?.session?.token, fetchJobs]);
 
   const handleDownload = useCallback(
-    async (job: Job) => {
+    (job: Job) => {
       if (!session?.session?.token || job.status !== "completed") {
         return;
       }
@@ -99,26 +99,15 @@ export function JobsDropdown({ onJobsFetched }: JobsDropdownProps) {
       setDownloading(job.id);
       setError(null);
 
-      try {
-        const blob = await trainingApi.downloadCheckpoint(
-          job.jobId,
-          session.session.token
-        );
+      const url = trainingApi.getDownloadUrl(job.jobId);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
 
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `checkpoint-${job.jobId}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      } catch (err: any) {
-        setError(err.message || "Failed to download checkpoint");
-        console.error("Error downloading checkpoint:", err);
-      } finally {
-        setDownloading(null);
-      }
+      setDownloading(null);
     },
     [session?.session?.token]
   );

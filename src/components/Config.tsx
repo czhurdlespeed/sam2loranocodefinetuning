@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { RANKS, CHECKPOINTS, DATASETS } from "../constants/trainingConfig";
 import { trainingApi } from "../services/trainingApi";
 import { useTrainingLogs } from "../hooks/useTrainingLogs";
@@ -30,7 +30,6 @@ export default function Config() {
   const [epochs, setEpochs] = useState(1);
   const [streamResponse, setStreamResponse] = useState<Response | null>(null);
   const [userJobs, setUserJobs] = useState<any[]>([]);
-  const hasAutoStartedRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Callback to update stage when backend status changes
@@ -179,7 +178,6 @@ export default function Config() {
 
   const handleTrain = useCallback(async () => {
     if (!isAuthenticated) {
-      sessionStorage.setItem("shouldStartTraining", "true");
       router.push("/login");
       return;
     }
@@ -240,30 +238,20 @@ export default function Config() {
     }
   }, [userId, jobId, session?.session?.token, session?.user?.id, setLogs]);
 
-  const handleDownload = useCallback(async () => {
+  const handleDownload = useCallback(() => {
     if (!session?.session?.token || !userId || !jobId) {
       setError("Not authenticated or missing job information");
       return;
     }
-    try {
-      setError(null);
-      const blob = await trainingApi.downloadCheckpoint(
-        jobId,
-        session.session.token
-      );
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `checkpoint-${jobId}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      setStage("idle");
-    } catch (error) {
-      setError("Failed to download checkpoint");
-      console.error("Error downloading checkpoint:", error);
-    }
+    setError(null);
+    const url = trainingApi.getDownloadUrl(jobId);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setStage("idle");
   }, [userId, jobId, session?.session?.token]);
 
   const handleEpochsChange = useCallback((event: any, newValue: number | number[]) => {
@@ -282,29 +270,6 @@ export default function Config() {
 
   // Jobs will be fetched by JobsDropdown and passed via handleJobsFetched callback
   // No need to fetch here to avoid duplicate API calls
-
-  useEffect(() => {
-    const shouldStartTraining = sessionStorage.getItem("shouldStartTraining");
-    if (
-      isAuthenticated &&
-      shouldStartTraining &&
-      !hasAutoStartedRef.current &&
-      stage === "idle"
-    ) {
-      hasAutoStartedRef.current = true;
-      sessionStorage.removeItem("shouldStartTraining");
-      submitTraining().catch((error) => {
-        setStage("idle");
-        setError("Failed to submit training job");
-        console.error("Error submitting training job:", error);
-        hasAutoStartedRef.current = false;
-      });
-    }
-
-    if (!shouldStartTraining && hasAutoStartedRef.current) {
-      hasAutoStartedRef.current = false;
-    }
-  }, [isAuthenticated, submitTraining, stage]);
 
   const isConfigDisabled = stage !== "idle" && stage !== "failed";
 
