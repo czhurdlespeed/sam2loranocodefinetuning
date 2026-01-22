@@ -10,6 +10,7 @@ import { ConfigOption } from "./ConfigOption";
 import { TrainingControls } from "./TrainingControls";
 import { LogsDisplay } from "./LogsDisplay";
 import { ConfigSlider } from "./ConfigSlider";
+import { JobsDropdown } from "./JobsDropdown";
 import { useSession } from "@/src/lib/auth-client";
 import { useRouter } from "next/navigation";
 
@@ -24,13 +25,13 @@ export default function Config() {
   const [datasetKey, setDatasetKey] = useState<keyof typeof DATASETS>("ir Polymer");
   const [stage, setStage] = useState<Stage>("idle");
   const [userId, setUserId] = useState("");
+  const [jobId, setJobId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [epochs, setEpochs] = useState(1);
+  const [streamResponse, setStreamResponse] = useState<Response | null>(null);
+  const [userJobs, setUserJobs] = useState<any[]>([]);
   const hasAutoStartedRef = useRef(false);
-
-  // Determine if we should be listening for logs/status updates
-  const isActive =
-    stage === "submitting" || stage === "pending" || stage === "running";
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Callback to update stage when backend status changes
   const handleStageChange = useCallback((newStage: Stage) => {
@@ -47,12 +48,34 @@ export default function Config() {
     });
   }, []);
 
-  const { logs, setLogs } = useTrainingLogs(
-    isActive,
-    userId,
-    handleStageChange,
-    session?.session?.token || null
-  );
+  // Callback to receive jobs from JobsDropdown (to avoid duplicate API calls)
+  const handleJobsFetched = useCallback((jobs: any[]) => {
+    setUserJobs(jobs || []);
+  }, []);
+
+  // Calculate next jobId based on completed jobs count
+  const calculateNextJobId = useCallback(() => {
+    // Count only completed jobs (since we only store successful jobs)
+    const completedJobsCount = userJobs.length;
+    return String(completedJobsCount + 1);
+  }, [userJobs]);
+
+  const handleStreamComplete = useCallback(async (status: "completed" | "failed") => {
+    if (!session?.session?.token || !jobId) {
+      return;
+    }
+    try {
+      await trainingApi.markJobComplete(jobId, status, undefined, session.session.token);
+      // Dispatch event to notify JobsDropdown to refresh (which will update our userJobs via callback)
+      if (status === "completed") {
+        window.dispatchEvent(new CustomEvent("jobCompleted"));
+      }
+    } catch (error) {
+      console.error("Error marking job complete/failed:", error);
+    }
+  }, [jobId, session?.session?.token]);
+
+  const { logs, setLogs } = useTrainingLogs(streamResponse, handleStageChange, handleStreamComplete);
 
   const handleRankChange = useCallback(() => {
     setRankIndex((prev) => (prev >= RANKS.length - 1 ? 0 : prev + 1));
@@ -76,41 +99,82 @@ export default function Config() {
 
   // Core training submission logic (extracted for reuse)
   const submitTraining = useCallback(async () => {
-    if (!session?.session?.token) {
+    if (!session?.session?.token || !session?.user?.id) {
       setError("Not authenticated");
       return;
     }
+
+    // Check if user is authorized (exists in database)
+    // This check happens server-side in the API route, but we can also check here
+    if (!isAuthenticated) {
+      setError("User not authorized to train models");
+      return;
+    }
+
+    // Calculate next jobId immediately based on completed jobs
+    const nextJobId = calculateNextJobId();
+
     setError(null);
-    setStage("submitting");
+    setStage("pending"); // Set to pending immediately so cancel button appears
     setLogs([]);
-    const data = await trainingApi.startTraining(
-      RANKS[rankIndex],
-      CHECKPOINTS[checkpointKey],
-      DATASETS[datasetKey],
-      epochs,
-      session.session.token
-    );
-    setUserId(data.user_id);
+    setUserId(session.user.id);
+    setJobId(nextJobId); // Set jobId immediately so cancel works right away
+
+    // Create abort controller for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     try {
-      const status = await trainingApi.getStatus(
-        data.user_id,
-        session.session.token
+      const response = await trainingApi.startTraining(
+        RANKS[rankIndex],
+        CHECKPOINTS[checkpointKey],
+        DATASETS[datasetKey],
+        epochs,
+        false, // fullfinetune - can be made configurable later
+        session.session.token,
+        abortController.signal
       );
-      if (status && status.status) {
-        handleStageChange(status.status);
+
+      // Verify jobId from response headers matches our calculation
+      const responseJobId = response.headers.get("X-Job-Id");
+      if (responseJobId && responseJobId !== nextJobId) {
+        console.warn(`JobId mismatch: calculated ${nextJobId}, received ${responseJobId}. Using received value.`);
+        setJobId(responseJobId);
       }
-    } catch (statusError) {
-      console.error("Error fetching initial status:", statusError);
+
+      // Set the streaming response for useTrainingLogs
+      setStreamResponse(response);
+      // Stage will be updated to "running" by useTrainingLogs when stream starts
+    } catch (error: any) {
+      // Don't show error if request was aborted (user canceled)
+      if (error.name === 'AbortError' || abortController.signal.aborted) {
+        console.log("Training request was canceled");
+        setStage("idle");
+        setJobId("");
+        setUserId("");
+        return;
+      }
+      console.error("Error starting training:", error);
+      setError(error.message || "Failed to start training");
+      setStage("failed");
+      setStreamResponse(null);
+      setJobId(""); // Clear jobId on error
+    } finally {
+      // Clear abort controller reference if request completed
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
     }
   }, [
     rankIndex,
     checkpointKey,
     datasetKey,
     epochs,
-    handleStageChange,
     session?.session?.token,
+    session?.user?.id,
+    isAuthenticated,
     setLogs,
+    calculateNextJobId,
   ]);
 
   const handleTrain = useCallback(async () => {
@@ -134,47 +198,73 @@ export default function Config() {
       setError("Not authenticated");
       return;
     }
+    
+    // Abort any ongoing fetch request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    
+    // jobId should be available from response headers
+    // Since jobs are only created when they complete, we can't look them up in the database
+    const cancelJobId = jobId;
+    const cancelUserId = userId || session.user.id;
+    
+    if (!cancelJobId || !cancelUserId) {
+      // If no jobId, just reset state (request might not have started yet)
+      setStage("idle");
+      setUserId("");
+      setJobId("");
+      setStreamResponse(null);
+      setLogs([]);
+      return;
+    }
+    
     try {
       setError(null);
       setStage("cancelling");
       setLogs([]);
-      await trainingApi.cancelTraining(userId, session.session.token);
+      await trainingApi.cancelTraining(cancelUserId, cancelJobId, session.session.token);
       setStage("idle");
-      setUserId(""); // Clear userId to ensure clean state for next job
+      setUserId("");
+      setJobId("");
+      setStreamResponse(null);
     } catch (error) {
+      // Even if cancel API call fails, reset the UI state
       setError("Failed to cancel training job");
       setStage("idle");
-      setUserId(""); // Clear userId even on error
+      setUserId("");
+      setJobId("");
+      setStreamResponse(null);
       console.error("Error canceling training job:", error);
     }
-  }, [userId, session?.session?.token, setLogs]);
+  }, [userId, jobId, session?.session?.token, session?.user?.id, setLogs]);
 
   const handleDownload = useCallback(async () => {
-    if (!session?.session?.token) {
-      setError("Not authenticated");
+    if (!session?.session?.token || !userId || !jobId) {
+      setError("Not authenticated or missing job information");
       return;
     }
     try {
       setError(null);
       const blob = await trainingApi.downloadCheckpoint(
-        userId,
+        jobId,
         session.session.token
       );
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `checkpoint.zip`;
+      a.download = `checkpoint-${jobId}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      await trainingApi.cleanupTraining(userId, session.session.token);
       setStage("idle");
     } catch (error) {
       setError("Failed to download checkpoint");
       console.error("Error downloading checkpoint:", error);
     }
-  }, [userId, session?.session?.token]);
+  }, [userId, jobId, session?.session?.token]);
 
   const handleEpochsChange = useCallback((event: any, newValue: number | number[]) => {
     const numValue = Array.isArray(newValue) ? newValue[0] : newValue;
@@ -188,6 +278,10 @@ export default function Config() {
     }
     setEpochs(clampedValue);
   }, []);
+
+
+  // Jobs will be fetched by JobsDropdown and passed via handleJobsFetched callback
+  // No need to fetch here to avoid duplicate API calls
 
   useEffect(() => {
     const shouldStartTraining = sessionStorage.getItem("shouldStartTraining");
@@ -253,6 +347,8 @@ export default function Config() {
       <p id="description-text" className="typing-text-visible text-base lg:text-xl text-center my-4">
         {descriptionText}
       </p>
+
+      {isAuthenticated && <JobsDropdown onJobsFetched={handleJobsFetched} />}
 
       <ul className="list-none p-0 flex flex-col gap-8 justify-center w-full my-4 mb-16 lg:flex-row lg:flex-wrap lg:justify-around">
         <ConfigOption

@@ -6,7 +6,9 @@ export const trainingApi = {
     checkpoint: string,
     dataset: string,
     epochs: number,
-    sessionToken: string | null
+    fullfinetune: boolean,
+    sessionToken: string | null,
+    signal?: AbortSignal
   ) {
     if (!sessionToken) {
       throw new Error("Not authenticated");
@@ -17,19 +19,22 @@ export const trainingApi = {
         "Content-Type": "application/json",
         Authorization: `Bearer ${sessionToken}`,
       },
-      body: JSON.stringify({ rank, checkpoint, dataset, epochs }),
+      body: JSON.stringify({ rank, checkpoint, dataset, epochs, fullfinetune }),
+      signal,
     });
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, ${errorText}`);
     }
-    return response.json();
+    // Return the response for streaming - the caller will handle the stream
+    return response;
   },
 
-  async getStatus(userId: string, sessionToken: string | null) {
+  async getJobs(sessionToken: string | null) {
     if (!sessionToken) {
       throw new Error("Not authenticated");
     }
-    const response = await fetch(`${API_BASE_URL}/status/${userId}`, {
+    const response = await fetch(`${API_BASE_URL}/jobs`, {
       headers: { Authorization: `Bearer ${sessionToken}` },
     });
     if (!response.ok) {
@@ -38,42 +43,57 @@ export const trainingApi = {
     return response.json();
   },
 
-  async cancelTraining(userId: string, sessionToken: string | null) {
+  async cancelTraining(userId: string, jobId: string, sessionToken: string | null) {
     if (!sessionToken) {
       throw new Error("Not authenticated");
     }
-    const response = await fetch(`${API_BASE_URL}/cancel/${userId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${sessionToken}` },
+    const response = await fetch(`${API_BASE_URL}/cancel`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({ userId, jobId }),
     });
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
+    return response.json();
   },
 
-  async cleanupTraining(userId: string, sessionToken: string | null) {
+  async downloadCheckpoint(jobId: string, sessionToken: string | null) {
     if (!sessionToken) {
       throw new Error("Not authenticated");
     }
-    const response = await fetch(`${API_BASE_URL}/cleanup/${userId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${sessionToken}` },
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-  },
-
-  async downloadCheckpoint(userId: string, sessionToken: string | null) {
-    if (!sessionToken) {
-      throw new Error("Not authenticated");
-    }
-    const response = await fetch(`${API_BASE_URL}/download/${userId}`, {
-      headers: { Authorization: `Bearer ${sessionToken}` },
-    });
+    // Only send jobId - userId is derived from session on the server
+    const response = await fetch(
+      `${API_BASE_URL}/download?jobId=${encodeURIComponent(jobId)}`,
+      {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      }
+    );
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     return response.blob();
+  },
+
+  async markJobComplete(jobId: string, status: "completed" | "failed", r2Key?: string, sessionToken: string | null = null) {
+    if (!sessionToken) {
+      throw new Error("Not authenticated");
+    }
+    const response = await fetch(`${API_BASE_URL}/jobs/complete`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({ jobId, status, r2Key }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, ${errorText}`);
+    }
+    return response.json();
   },
 };

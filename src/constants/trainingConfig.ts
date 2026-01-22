@@ -14,4 +14,5 @@ export const DATASETS = {
   TIG: "TIG",
 };
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+// Use Next.js API routes
+export const API_BASE_URL = "/api";

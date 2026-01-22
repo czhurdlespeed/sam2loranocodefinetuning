@@ -1,87 +1,115 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { API_BASE_URL } from "../constants/trainingConfig";
+import { useState, useEffect, useRef } from "react";
 
 type Stage = "idle" | "submitting" | "pending" | "running" | "completed" | "failed" | "cancelling";
 
+// Hook to handle streaming response from Modal training endpoint
 export function useTrainingLogs(
-  training: boolean,
-  userId: string,
+  streamResponse: Response | null,
   onStageChange: (stage: Stage) => void,
-  sessionToken: string | null
+  onComplete?: (status: "completed" | "failed") => void
 ) {
   const [logs, setLogs] = useState<string[]>([]);
+  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
 
-  // Use SSE (Server-Sent Events) for real-time logs and status updates
   useEffect(() => {
-    if (!training || !userId || !onStageChange || !sessionToken) return;
+    if (!streamResponse) {
+      return;
+    }
 
-    let eventSource: EventSource | null = null;
-
-    // EventSource doesn't support custom headers, so we pass token as query param
-    const setupEventSource = () => {
+    // Modal streams SSE format: data: {'log': '...'}\n\n
+    const processStream = async () => {
       try {
-        const url = `${API_BASE_URL}/logs/${userId}?token=${encodeURIComponent(
-          sessionToken
-        )}`;
-        eventSource = new EventSource(url);
+        const reader = streamResponse.body?.getReader();
+        if (!reader) {
+          console.error("No reader available");
+          return;
+        }
 
-        eventSource.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
+        readerRef.current = reader;
+        const decoder = new TextDecoder();
+        let buffer = "";
 
-            if (data.type === "log") {
-              setLogs((prevLogs) => [...prevLogs, data.content]);
-            } else if (data.type === "status") {
-              if (
-                data.status === "pending" ||
-                data.status === "running" ||
-                data.status === "completed" ||
-                data.status === "failed"
-              ) {
-                onStageChange(data.status);
-              }
-              if (data.status === "pending") {
-                setLogs((prevLogs) => [...prevLogs, "Job is pending..."]);
-              }
-              if (data.status === "completed" || data.status === "failed") {
-                eventSource?.close();
-              }
-            } else if (data.type === "connected") {
-              console.log("Connected to log stream");
-            } else if (data.type === "error") {
-              console.error("Error:", data.message);
-              setLogs((prevLogs) => [...prevLogs, `Error: ${data.message}`]);
-              eventSource?.close();
-            }
-          } catch (error) {
-            console.error("Error parsing SSE data:", error);
+        while (true) {
+          const { done, value } = await reader.read();
+
+          if (done) {
+            // Stream completed successfully
+            onStageChange("completed");
+            onComplete?.("completed");
+            break;
           }
-        };
 
-        eventSource.onerror = (error) => {
-          console.error("EventSource error:", error);
-          eventSource?.close();
-        };
+          // Decode chunk and add to buffer
+          buffer += decoder.decode(value, { stream: true });
+
+          // Process complete SSE messages (ending with \n\n)
+          const lines = buffer.split("\n\n");
+          buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const jsonStr = line.slice(6); // Remove "data: " prefix
+                const data = JSON.parse(jsonStr);
+
+                // Handle log messages from Modal
+                if (data.log) {
+                  setLogs((prevLogs) => [...prevLogs, data.log]);
+                }
+
+                // Handle status updates if present
+                if (data.status) {
+                  if (
+                    data.status === "pending" ||
+                    data.status === "running" ||
+                    data.status === "completed" ||
+                    data.status === "failed"
+                  ) {
+                    onStageChange(data.status);
+                  }
+                }
+
+                // Check for completion indicators
+                if (data.log?.includes("completed") || data.log?.includes("Successfully")) {
+                  onStageChange("completed");
+                }
+              } catch (parseError) {
+                // If it's not JSON, treat as plain log
+                const logLine = line.replace(/^data: /, "");
+                if (logLine.trim()) {
+                  setLogs((prevLogs) => [...prevLogs, logLine]);
+                }
+              }
+            } else if (line.trim()) {
+              // Non-SSE formatted line, add as log
+              setLogs((prevLogs) => [...prevLogs, line]);
+            }
+          }
+        }
       } catch (error) {
-        console.error("Error setting up EventSource:", error);
+        console.error("Error processing stream:", error);
+        setLogs((prevLogs) => [...prevLogs, `Error: ${error}`]);
+        onStageChange("failed");
+        // Note: Failed job cleanup will be handled by the Config component
+      } finally {
+        if (readerRef.current) {
+          readerRef.current.releaseLock();
+          readerRef.current = null;
+        }
       }
     };
 
-    setupEventSource();
+    processStream();
 
     return () => {
-      if (eventSource) {
-        eventSource.close();
+      if (readerRef.current) {
+        readerRef.current.cancel();
+        readerRef.current = null;
       }
     };
-  }, [
-    training,
-    userId,
-    onStageChange,
-    sessionToken,
-  ]);
+  }, [streamResponse, onStageChange, onComplete]);
 
   return { logs, setLogs };
 }

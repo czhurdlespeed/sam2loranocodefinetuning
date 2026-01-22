@@ -8,6 +8,20 @@
       "when": 1769089101094,
       "tag": "0000_blue_pet_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1769101754361,
+      "tag": "0001_sweet_archangel",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1769112821574,
+      "tag": "0002_lethal_sandman",
+      "breakpoints": true
     }
   ]
 }

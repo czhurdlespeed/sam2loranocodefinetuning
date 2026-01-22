@@ -9,6 +9,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false, // Set to true when ready
+    autoSignIn: false, // Disable auto-signin - users need admin approval first
   },
   socialProviders: {
     github: {
@@ -22,7 +23,13 @@ export const auth = betterAuth({
   },
   baseURL: process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000",
   basePath: "/api/auth",
-  secret: process.env.BETTER_AUTH_SECRET,
+  secret: (() => {
+    const secret = process.env.BETTER_AUTH_SECRET;
+    if (!secret && process.env.NODE_ENV === "production") {
+      throw new Error("BETTER_AUTH_SECRET environment variable is required in production");
+    }
+    return secret;
+  })(),
 });
 
 export type Session = typeof auth.$Infer.Session;

@@ -12,6 +12,7 @@ export default function Home() {
         <Link
           href="https://github.com/facebookresearch/sam2"
           target="_blank"
+          rel="noopener noreferrer"
           className="mx-auto w-fit p-0"
         >
           <Image

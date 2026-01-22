@@ -6,6 +6,7 @@ export const user = pgTable("user", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
+  approved: boolean("approved").default(false).notNull(), // Admin approval required
   image: text("image"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
@@ -73,10 +74,6 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
-export const userRelations = relations(user, ({ many }) => ({
-  sessions: many(session),
-  accounts: many(account),
-}));
 
 export const sessionRelations = relations(session, ({ one }) => ({
   user: one(user, {
@@ -90,4 +87,38 @@ export const accountRelations = relations(account, ({ one }) => ({
     fields: [account.userId],
     references: [user.id],
   }),
+}));
+
+export const trainingJob = pgTable("training_job", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  jobId: text("job_id").notNull(),
+  r2Key: text("r2_key").notNull(), // Path/key in Cloudflare R2 bucket
+  status: text("status")
+    .notNull()
+    .$type<"pending" | "running" | "completed" | "failed" | "cancelled">()
+    .default("pending"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+}, (table) => [
+  index("training_job_userId_idx").on(table.userId),
+  index("training_job_userId_jobId_idx").on(table.userId, table.jobId),
+]);
+
+export const trainingJobRelations = relations(trainingJob, ({ one }) => ({
+  user: one(user, {
+    fields: [trainingJob.userId],
+    references: [user.id],
+  }),
+}));
+
+export const userRelations = relations(user, ({ many }) => ({
+  sessions: many(session),
+  accounts: many(account),
+  trainingJobs: many(trainingJob),
 }));
