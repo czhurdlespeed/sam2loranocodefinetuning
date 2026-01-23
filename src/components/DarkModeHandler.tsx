@@ -4,12 +4,23 @@ import { useEffect } from "react";
 
 export function DarkModeHandler() {
   useEffect(() => {
+    // Initial check - ensure dark class is removed if light is default
+    const initialDarkInput = document.getElementById("dark") as HTMLInputElement;
+    if (!initialDarkInput?.checked) {
+      document.documentElement.classList.remove("dark");
+    }
+    
     const updateDarkMode = () => {
       const darkInput = document.getElementById("dark") as HTMLInputElement;
+      const lightInput = document.getElementById("light") as HTMLInputElement;
       
+      // Explicitly check both inputs to ensure correct state
       if (darkInput?.checked) {
         document.documentElement.classList.add("dark");
+      } else if (lightInput?.checked) {
+        document.documentElement.classList.remove("dark");
       } else {
+        // Fallback: if neither is checked (shouldn't happen with radio buttons), default to light
         document.documentElement.classList.remove("dark");
       }
     };

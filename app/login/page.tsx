@@ -52,24 +52,35 @@ export default function LoginPage() {
     }
 
     try {
-      const result = await authClient.signUp.email({
+      const signUpResult = await authClient.signUp.email({
         email,
         password,
         name,
       });
 
-      if (result.error) {
-        setError(result.error.message || "Failed to sign up");
-      } else {
-        setError(null);
-        // Show success message
-        alert("Account created successfully! Please wait for admin approval before logging in.");
-        // Switch to sign-in mode
-        setIsSignUp(false);
-        setEmail("");
-        setPassword("");
-        setName("");
+      if (signUpResult.error) {
+        setError(signUpResult.error.message || "Failed to sign up");
+        setLoading(false);
+        return;
       }
+
+      // After successful sign-up, sign them in so they can see the approval message
+      // They'll be authenticated but unapproved, so they'll see the disabled train button
+      const signInResult = await authClient.signIn.email({
+        email,
+        password,
+      });
+
+      if (signInResult.error) {
+        setError(signInResult.error.message || "Account created but failed to sign in. Please try signing in manually.");
+        setLoading(false);
+        return;
+      }
+
+      // Redirect to main page where the approval message will be shown
+      setError(null);
+      router.push("/");
+      router.refresh();
     } catch (err: any) {
       setError(err.message || "An error occurred");
     } finally {
@@ -206,7 +217,7 @@ export default function LoginPage() {
           </div>
           {isSignUp && (
             <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-              After signing up, your account will need admin approval before you can log in.
+              After signing up, your account will need admin approval before you can begin training SAM2!
             </p>
           )}
 

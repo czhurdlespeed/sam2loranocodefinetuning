@@ -161,11 +161,168 @@
 html:has(#mode-switcher #light:checked) {
   color-scheme: light;
 }
+
 html:has(#mode-switcher #dark:checked) {
   color-scheme: dark;
+}
+
+/* Override Tailwind dark: styles using :has() selector - Dark Mode */
+html:has(#mode-switcher #dark:checked) .dark\:bg-gray-900 {
+  background-color: rgb(17, 24, 39) !important;
+}
+
+html:has(#mode-switcher #dark:checked) .dark\:bg-gray-800 {
+  background-color: rgb(31, 41, 55) !important;
+}
+
+html:has(#mode-switcher #dark:checked) .dark\:bg-gray-700 {
+  background-color: rgb(55, 65, 81) !important;
+}
+
+html:has(#mode-switcher #dark:checked) .dark\:bg-gray-600 {
+  background-color: rgb(75, 85, 99) !important;
+}
+
+html:has(#mode-switcher #dark:checked) .dark\:text-white {
+  color: rgb(255, 255, 255) !important;
+}
+
+html:has(#mode-switcher #dark:checked) .dark\:text-gray-300 {
+  color: rgb(209, 213, 219) !important;
+}
+
+html:has(#mode-switcher #dark:checked) .dark\:text-gray-400 {
+  color: rgb(156, 163, 175) !important;
+}
+
+html:has(#mode-switcher #dark:checked) .dark\:border-gray-600 {
+  border-color: rgb(75, 85, 99) !important;
+}
+
+html:has(#mode-switcher #dark:checked) .dark\:border-white {
+  border-color: rgb(255, 255, 255) !important;
+}
+
+html:has(#mode-switcher #dark:checked) .dark\:placeholder-gray-400 {
+  --tw-placeholder-opacity: 1;
+  color: rgb(156, 163, 175) !important;
+}
+
+html:has(#mode-switcher #dark:checked) .dark\:hover\:bg-gray-700:hover {
+  background-color: rgb(55, 65, 81) !important;
+}
+
+html:has(#mode-switcher #dark:checked) .dark\:hover\:bg-gray-600:hover {
+  background-color: rgb(75, 85, 99) !important;
+}
+
+html:has(#mode-switcher #dark:checked) .dark\:bg-red-900 {
+  background-color: rgb(127, 29, 29) !important;
+}
+
+html:has(#mode-switcher #dark:checked) .dark\:text-red-300 {
+  color: rgb(252, 165, 165) !important;
+}
+
+html:has(#mode-switcher #dark:checked) .dark\:text-orange-400 {
+  color: rgb(251, 146, 60) !important;
+}
+
+/* Override Tailwind dark: styles - Light Mode (explicit light colors) */
+html:has(#mode-switcher #light:checked) .dark\:bg-gray-900,
+html:not(:has(#mode-switcher #dark:checked)) .dark\:bg-gray-900 {
+  background-color: rgb(249, 250, 251) !important; /* gray-50 */
+}
+
+html:has(#mode-switcher #light:checked) .dark\:bg-gray-800,
+html:not(:has(#mode-switcher #dark:checked)) .dark\:bg-gray-800 {
+  background-color: rgb(255, 255, 255) !important; /* white */
+}
+
+html:has(#mode-switcher #light:checked) .dark\:bg-gray-700,
+html:not(:has(#mode-switcher #dark:checked)) .dark\:bg-gray-700 {
+  background-color: rgb(255, 255, 255) !important; /* white */
+}
+
+html:has(#mode-switcher #light:checked) .dark\:bg-gray-600,
+html:not(:has(#mode-switcher #dark:checked)) .dark\:bg-gray-600 {
+  background-color: rgb(243, 244, 246) !important; /* gray-100 */
+}
+
+html:has(#mode-switcher #light:checked) .dark\:text-white,
+html:not(:has(#mode-switcher #dark:checked)) .dark\:text-white {
+  color: rgb(17, 24, 39) !important; /* gray-900 */
+}
+
+html:has(#mode-switcher #light:checked) .dark\:text-gray-300,
+html:not(:has(#mode-switcher #dark:checked)) .dark\:text-gray-300 {
+  color: rgb(75, 85, 99) !important; /* gray-600 */
+}
+
+html:has(#mode-switcher #light:checked) .dark\:text-gray-400,
+html:not(:has(#mode-switcher #dark:checked)) .dark\:text-gray-400 {
+  color: rgb(107, 114, 128) !important; /* gray-500 */
+}
+
+html:has(#mode-switcher #light:checked) .dark\:border-gray-600,
+html:not(:has(#mode-switcher #dark:checked)) .dark\:border-gray-600 {
+  border-color: rgb(209, 213, 219) !important; /* gray-300 */
+}
+
+html:has(#mode-switcher #light:checked) .dark\:border-white,
+html:not(:has(#mode-switcher #dark:checked)) .dark\:border-white {
+  border-color: rgb(209, 213, 219) !important; /* gray-300 */
+}
+
+html:has(#mode-switcher #light:checked) .dark\:placeholder-gray-400,
+html:not(:has(#mode-switcher #dark:checked)) .dark\:placeholder-gray-400 {
+  color: rgb(156, 163, 175) !important; /* gray-400 */
+}
+
+html:has(#mode-switcher #light:checked) .dark\:hover\:bg-gray-700:hover,
+html:not(:has(#mode-switcher #dark:checked)) .dark\:hover\:bg-gray-700:hover {
+  background-color: rgb(249, 250, 251) !important; /* gray-50 */
+}
+
+html:has(#mode-switcher #light:checked) .dark\:hover\:bg-gray-600:hover,
+html:not(:has(#mode-switcher #dark:checked)) .dark\:hover\:bg-gray-600:hover {
+  background-color: rgb(243, 244, 246) !important; /* gray-100 */
+}
+
+html:has(#mode-switcher #light:checked) .dark\:bg-red-900,
+html:not(:has(#mode-switcher #dark:checked)) .dark\:bg-red-900 {
+  background-color: rgb(254, 242, 242) !important; /* red-50 */
+}
+
+html:has(#mode-switcher #light:checked) .dark\:text-red-300,
+html:not(:has(#mode-switcher #dark:checked)) .dark\:text-red-300 {
+  color: rgb(220, 38, 38) !important; /* red-600 */
+}
+
+html:has(#mode-switcher #light:checked) .dark\:text-orange-400,
+html:not(:has(#mode-switcher #dark:checked)) .dark\:text-orange-400 {
+  color: rgb(251, 146, 60) !important; /* orange-400 */
 }
 
 /* Style config labels in dark mode */
 html:has(#mode-switcher #dark:checked) span.font-bold.text-gray-900 {
   color: rgb(255, 255, 255) !important;
+}
+
+/* Style config labels in light mode - ensure they're black */
+html:has(#mode-switcher #light:checked) span.font-bold.text-gray-900,
+html:not(:has(#mode-switcher #dark:checked)) span.font-bold.text-gray-900 {
+  color: rgb(0, 0, 0) !important;
+}
+
+/* Style button text in light mode - ensure they're black */
+html:has(#mode-switcher #light:checked) button.text-gray-900,
+html:not(:has(#mode-switcher #dark:checked)) button.text-gray-900 {
+  color: rgb(0, 0, 0) !important;
+}
+
+/* Ensure text-gray-900 elements are black in light mode (fallback) */
+html:has(#mode-switcher #light:checked) .text-gray-900,
+html:not(:has(#mode-switcher #dark:checked)) .text-gray-900 {
+  color: rgb(17, 24, 39) !important;
 }

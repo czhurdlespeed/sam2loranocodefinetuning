@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { RANKS, CHECKPOINTS, DATASETS } from "../constants/trainingConfig";
 import { trainingApi } from "../services/trainingApi";
 import { useTrainingLogs } from "../hooks/useTrainingLogs";
@@ -30,6 +30,7 @@ export default function Config() {
   const [epochs, setEpochs] = useState(1);
   const [streamResponse, setStreamResponse] = useState<Response | null>(null);
   const [userJobs, setUserJobs] = useState<any[]>([]);
+  const [isApproved, setIsApproved] = useState<boolean | undefined>(undefined);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Callback to update stage when backend status changes
@@ -270,6 +271,41 @@ export default function Config() {
   // Jobs will be fetched by JobsDropdown and passed via handleJobsFetched callback
   // No need to fetch here to avoid duplicate API calls
 
+  // Fetch user approval status when authenticated
+  useEffect(() => {
+    const fetchUserStatus = async () => {
+      if (!isAuthenticated) {
+        setIsApproved(undefined);
+        return;
+      }
+
+      try {
+        // Cookies are automatically included for same-origin requests
+        // better-auth's getSession reads from cookies in the request headers
+        const response = await fetch("/api/user/status", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setIsApproved(data.approved);
+        } else {
+          // If unauthorized or error, assume not approved
+          setIsApproved(false);
+        }
+      } catch (error) {
+        console.error("Error fetching user approval status:", error);
+        setIsApproved(false);
+      }
+    };
+
+    fetchUserStatus();
+  }, [isAuthenticated]);
+
   const isConfigDisabled = stage !== "idle" && stage !== "failed";
 
   // Phrases for the h1 typing effect - memoized to prevent re-creation on every render
@@ -346,6 +382,8 @@ export default function Config() {
         onTrain={handleTrain}
         onCancel={handleCancel}
         onDownload={handleDownload}
+        isApproved={isAuthenticated ? isApproved : undefined}
+        isAuthenticated={isAuthenticated}
       />
 
       {(stage === "pending" ||

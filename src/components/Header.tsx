@@ -3,6 +3,7 @@
 import React from "react";
 import { useSession, signOut } from "@/src/lib/auth-client";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function Header() {
   const { data: session, isPending } = useSession();
@@ -21,11 +22,19 @@ export default function Header() {
 
   return (
     <header className="flex items-center justify-between w-full mb-4">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-1">
         {isAuthenticated && session.user.name && (
           <span className="text-lg font-medium">
             Hello, {session.user.name} 👋!
           </span>
+        )}
+        {!isAuthenticated && (
+          <Link
+            href="/login"
+            className="px-4 py-2 rounded-lg bg-orange-500 text-white text-lg font-bold no-underline hover:bg-orange-600 transition-colors duration-300"
+          >
+            Login to Train
+          </Link>
         )}
         {isAuthenticated && (
           <button
@@ -35,20 +44,21 @@ export default function Header() {
             Sign Out
           </button>
         )}
+        <div className="flex-1"></div>
+        <fieldset id="mode-switcher" className="radio-switch">
+          <legend>Select a color mode:</legend>
+          <input
+            type="radio"
+            id="light"
+            name="color-scheme"
+            value="light"
+            defaultChecked
+          />
+          <label htmlFor="light">Light</label>
+          <input type="radio" id="dark" name="color-scheme" value="dark" />
+          <label htmlFor="dark">Dark</label>
+        </fieldset>
       </div>
-      <fieldset id="mode-switcher" className="radio-switch">
-        <legend>Select a color mode:</legend>
-        <input
-          type="radio"
-          id="light"
-          name="color-scheme"
-          value="light"
-          defaultChecked
-        />
-        <label htmlFor="light">Light</label>
-        <input type="radio" id="dark" name="color-scheme" value="dark" />
-        <label htmlFor="dark">Dark</label>
-      </fieldset>
     </header>
   );
 }

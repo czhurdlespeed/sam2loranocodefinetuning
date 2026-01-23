@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import { ClipLoader } from "react-spinners";
+import Link from "next/link";
 
 type Stage = "idle" | "submitting" | "pending" | "running" | "completed" | "failed" | "cancelling";
 
@@ -10,6 +11,8 @@ interface TrainingControlsProps {
   onTrain: () => void;
   onCancel: () => void;
   onDownload: () => void;
+  isApproved?: boolean; // undefined = loading, false = not approved, true = approved
+  isAuthenticated?: boolean; // true = logged in, false = not logged in
 }
 
 export const TrainingControls = memo(function TrainingControls({
@@ -17,6 +20,8 @@ export const TrainingControls = memo(function TrainingControls({
   onTrain,
   onCancel,
   onDownload,
+  isApproved,
+  isAuthenticated,
 }: TrainingControlsProps) {
   // Show "Submitting Job" with spinner while submitting
   if (stage === "submitting") {
@@ -90,11 +95,49 @@ export const TrainingControls = memo(function TrainingControls({
   }
 
   // Default: show train button (idle state)
+  // If user is not logged in, show disabled button with login message
+  if (isAuthenticated === false) {
+    return (
+      <div className="flex flex-col gap-4 items-center">
+        <button
+          className="px-5 py-2.5 rounded-xl border-2 border-black dark:border-white bg-gray-400 text-gray-900 dark:text-white font-bold text-xl w-[250px] cursor-not-allowed opacity-80"
+          disabled={true}
+        >
+          Train
+        </button>
+        <p className="text-center text-sm text-gray-600 dark:text-gray-400 max-w-md">
+          <Link href="/login" className="text-orange-500 hover:text-orange-600 underline">
+            Login
+          </Link>{" "}
+          to start training models
+        </p>
+      </div>
+    );
+  }
+
+  // If user is not approved, show disabled button with message
+  if (isApproved === false) {
+    return (
+      <div className="flex flex-col gap-4 items-center">
+        <button
+          className="px-5 py-2.5 rounded-xl border-2 border-black dark:border-white bg-gray-400 text-gray-900 dark:text-white font-bold text-xl w-[250px] cursor-not-allowed opacity-80"
+          disabled={true}
+        >
+          Train
+        </button>
+        <p className="text-center text-sm text-gray-600 dark:text-gray-400 max-w-md">
+          Your account is pending admin approval. Once approved, you can begin training SAM2!
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4 items-center">
       <button
-        className="px-5 py-2.5 rounded-xl border-2 border-black dark:border-white bg-green-500 text-gray-900 dark:text-white font-bold text-xl w-[250px] hover:bg-green-400"
+        className="px-5 py-2.5 rounded-xl border-2 border-black dark:border-white bg-green-500 text-gray-900 dark:text-white font-bold text-xl w-[250px] hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-80 disabled:bg-gray-400"
         onClick={onTrain}
+        disabled={isApproved === undefined}
       >
         Train
       </button>

@@ -73,15 +73,6 @@ export default function Footer() {
     <footer className="w-screen mt-8 ml-[calc(50%-50vw)] py-8 bg-gray-700 dark:bg-black">
       <ul className="list-none p-0 m-0 flex flex-row flex-wrap justify-evenly items-center">
         <li>
-          <MailTo
-            to={obfuscatedTo}
-            subject="Request Access to SAM2 Webapp"
-            body={`I would like to request access to the SAM2 web application.\r\n\r\nSincerely,\r\n\r\n<Your Name Here>`}
-            label="Request Access"
-            obfuscated={true}
-          />
-        </li>
-        <li>
           <a
             href="https://marci.eecs.utk.edu/"
             target="_blank"
