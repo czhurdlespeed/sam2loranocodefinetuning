@@ -48,13 +48,15 @@ const nextConfig: NextConfig = {
                 "font-src 'self' data:",
                 "connect-src 'self' https:",
                 "frame-ancestors 'none'",
+                "frame-src 'self'",
                 "base-uri 'self'",
                 "form-action 'self'",
               ];
 
-              // Allow Vercel Live feedback script in preview environments
+              // Allow Vercel Live feedback script and frames in preview environments
               if (isPreview) {
                 directives[1] = "script-src 'self' 'unsafe-inline' https://vercel.live";
+                directives[7] = "frame-src 'self' https://vercel.live";
               }
 
               // Allow localhost connections in development
