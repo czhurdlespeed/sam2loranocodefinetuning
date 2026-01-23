@@ -35,7 +35,35 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';",
+            value: (() => {
+              const isDev = process.env.NODE_ENV === "development";
+              const isPreview = process.env.VERCEL_ENV === "preview";
+
+              // Base CSP directives
+              const directives = [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline'",
+                "style-src 'self' 'unsafe-inline'",
+                "img-src 'self' data: https:",
+                "font-src 'self' data:",
+                "connect-src 'self' https:",
+                "frame-ancestors 'none'",
+                "base-uri 'self'",
+                "form-action 'self'",
+              ];
+
+              // Allow Vercel Live feedback script in preview environments
+              if (isPreview) {
+                directives[1] = "script-src 'self' 'unsafe-inline' https://vercel.live";
+              }
+
+              // Allow localhost connections in development
+              if (isDev) {
+                directives[5] = "connect-src 'self' https: http://localhost:* ws://localhost:* ws://127.0.0.1:*";
+              }
+
+              return directives.join("; ");
+            })(),
           },
         ],
       },
