@@ -36,57 +36,67 @@ export const auth = betterAuth({
   })(),
   hooks: {
     after: createAuthMiddleware(async (ctx) => {
-      // Handle both email signups and OAuth callbacks (GitHub, Google) for new user signups
-      // Better-auth uses paths like /sign-up/email or /sign-up-email
+      // Only process new signups, not existing user logins
+      // Early exit for non-signup paths to avoid unnecessary database queries
       const isSignUp = ctx.path === "/sign-up/email";
       const isOAuthCallback = ctx.path?.includes("/callback/");
 
+      if (!isSignUp && !isOAuthCallback) {
+        return; // Skip for non-signup/auth flows
+      }
+
       // Check if a new session was created (indicating a new user signup)
-      // This works for both email and OAuth signups now that autoSignIn is enabled
       const newSession = ctx.context?.newSession;
       const newUser = newSession?.user;
 
-      // Process both email signups and OAuth callbacks
-      if ((isSignUp || isOAuthCallback) && newUser?.id) {
-        try {
-          // Get the user from database to check their current state
-          const dbUser = await db.query.user.findFirst({
-            where: (users, { eq }) => eq(users.id, newUser.id),
-          });
+      // Only process if we have a new user (signup scenario)
+      if (!newUser?.id) {
+        return; // Existing user login, skip processing
+      }
 
-          if (!dbUser) {
-            // User doesn't exist yet (shouldn't happen, but handle gracefully)
-            return;
-          }
+      try {
+        // Optimize: Only query database if we suspect this is a new signup
+        // For OAuth callbacks, better-auth creates the user before this hook runs
+        // So we can check the createdAt timestamp to determine if it's truly new
+        const dbUser = await db.query.user.findFirst({
+          where: (users, { eq }) => eq(users.id, newUser.id),
+          columns: {
+            id: true,
+            approved: true,
+            createdAt: true,
+          },
+        });
 
-          // Check if user was just created (within last 10 seconds)
-          // This helps distinguish new signups from existing user logins
-          const userCreatedAt = dbUser.createdAt;
-          const now = new Date();
-          const secondsSinceCreation = (now.getTime() - userCreatedAt.getTime()) / 1000;
-          const isNewUser = secondsSinceCreation < 10;
-
-          // Only process if this appears to be a new user signup
-          // If user is already approved, they're an existing user logging in
-          if (isNewUser && !dbUser.approved) {
-            // Ensure user is set to unapproved
-            await db
-              .update(user)
-              .set({ approved: false })
-              .where(eq(user.id, newUser.id));
-
-            // Send email notification to admin (non-blocking)
-            sendSignupNotification(
-              newUser.email,
-              newUser.name || "Unknown"
-            ).catch((error) => {
-              console.error("Failed to send signup notification email:", error);
-            });
-          }
-        } catch (error) {
-          // Log error but don't fail the auth flow
-          console.error("Error in signup hook:", error);
+        if (!dbUser) {
+          return; // User doesn't exist (shouldn't happen)
         }
+
+        // Check if user was just created (within last 10 seconds)
+        // This distinguishes new signups from existing user logins
+        const userCreatedAt = dbUser.createdAt;
+        const now = new Date();
+        const secondsSinceCreation = (now.getTime() - userCreatedAt.getTime()) / 1000;
+        const isNewUser = secondsSinceCreation < 10;
+
+        // Only process if this is a new user signup and not already approved
+        if (isNewUser && !dbUser.approved) {
+          // Ensure user is set to unapproved (idempotent operation)
+          await db
+            .update(user)
+            .set({ approved: false })
+            .where(eq(user.id, newUser.id));
+
+          // Send email notification to admin (non-blocking, fire-and-forget)
+          sendSignupNotification(
+            newUser.email,
+            newUser.name || "Unknown"
+          ).catch((error) => {
+            console.error("Failed to send signup notification email:", error);
+          });
+        }
+      } catch (error) {
+        // Log error but don't fail the auth flow
+        console.error("Error in signup hook:", error);
       }
     }),
   },
