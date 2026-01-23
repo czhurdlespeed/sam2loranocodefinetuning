@@ -25,7 +25,15 @@ export const auth = betterAuth({
       clientSecret: process.env.BETTER_AUTH_GOOGLE_CLIENT_SECRET || "",
     },
   },
-  baseURL: process.env.VERCEL_URL,
+  baseURL: (() => {
+    const url = process.env.VERCEL_URL || process.env.BETTER_AUTH_URL;
+    if (!url) return undefined;
+    // VERCEL_URL doesn't include protocol, so add https://
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      return url;
+    }
+    return `https://${url}`;
+  })(),
   basePath: "/api/auth",
   secret: (() => {
     const secret = process.env.BETTER_AUTH_SECRET;
