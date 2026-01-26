@@ -48,6 +48,7 @@ export const auth = betterAuth({
       origins.push(`https://${process.env.VERCEL_PROJECT_NAME}-*.vercel.app`);
     }
     origins.push("http://localhost:3000");
+    origins.push("https://nocodefinetuning.calvinwetzel.dev");
     return origins;
 
   })(),
