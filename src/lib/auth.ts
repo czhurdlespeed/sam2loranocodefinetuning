@@ -34,7 +34,7 @@ export const auth = betterAuth({
       process.env.NEXT_PUBLIC_BETTER_AUTH_URL = url;
       process.env.BETTER_AUTH_URL = url;
     } else if (process.env.VERCEL_ENV === "preview") {
-      url = process.env.VERCEL_URL;
+      url = `https://${process.env.VERCEL_URL}`;
       process.env.NEXT_PUBLIC_BETTER_AUTH_URL = url;
       process.env.BETTER_AUTH_URL = url;
     } else {

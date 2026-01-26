@@ -8,7 +8,7 @@ function getBaseURL(): string | undefined {
   if (process.env.VERCEL_ENV === "production") {
     return process.env.PRODUCTION_URL;
   } else if (process.env.VERCEL_ENV === "preview") {
-    return process.env.VERCEL_URL;
+    return `https://${process.env.VERCEL_URL}`;
   } else {
     return process.env.DEV_URL;
   }
