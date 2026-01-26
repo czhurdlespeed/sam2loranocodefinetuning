@@ -14,15 +14,24 @@ import { JobsDropdown } from "./JobsDropdown";
 import { useSession } from "@/src/lib/auth-client";
 import { useRouter } from "next/navigation";
 
-type Stage = "idle" | "submitting" | "pending" | "running" | "completed" | "failed" | "cancelling";
+type Stage =
+  | "idle"
+  | "submitting"
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelling";
 
 export default function Config() {
   const router = useRouter();
-  const { data: session, isPending } = useSession();
+  const { data: session } = useSession();
   const isAuthenticated = !!session?.user;
   const [rankIndex, setRankIndex] = useState(0);
-  const [checkpointKey, setCheckpointKey] = useState<keyof typeof CHECKPOINTS>("Tiny");
-  const [datasetKey, setDatasetKey] = useState<keyof typeof DATASETS>("ir Polymer");
+  const [checkpointKey, setCheckpointKey] =
+    useState<keyof typeof CHECKPOINTS>("Tiny");
+  const [datasetKey, setDatasetKey] =
+    useState<keyof typeof DATASETS>("ir Polymer");
   const [stage, setStage] = useState<Stage>("idle");
   const [userId, setUserId] = useState("");
   const [jobId, setJobId] = useState("");
@@ -60,22 +69,34 @@ export default function Config() {
     return String(completedJobsCount + 1);
   }, [userJobs]);
 
-  const handleStreamComplete = useCallback(async (status: "completed" | "failed") => {
-    if (!session?.session?.token || !jobId) {
-      return;
-    }
-    try {
-      await trainingApi.markJobComplete(jobId, status, undefined, session.session.token);
-      // Dispatch event to notify JobsDropdown to refresh (which will update our userJobs via callback)
-      if (status === "completed") {
-        window.dispatchEvent(new CustomEvent("jobCompleted"));
+  const handleStreamComplete = useCallback(
+    async (status: "completed" | "failed") => {
+      if (!session?.session?.token || !jobId) {
+        return;
       }
-    } catch (error) {
-      console.error("Error marking job complete/failed:", error);
-    }
-  }, [jobId, session?.session?.token]);
+      try {
+        await trainingApi.markJobComplete(
+          jobId,
+          status,
+          undefined,
+          session.session.token,
+        );
+        // Dispatch event to notify JobsDropdown to refresh (which will update our userJobs via callback)
+        if (status === "completed") {
+          window.dispatchEvent(new CustomEvent("jobCompleted"));
+        }
+      } catch (error) {
+        console.error("Error marking job complete/failed:", error);
+      }
+    },
+    [jobId, session?.session?.token],
+  );
 
-  const { logs, setLogs } = useTrainingLogs(streamResponse, handleStageChange, handleStreamComplete);
+  const { logs, setLogs } = useTrainingLogs(
+    streamResponse,
+    handleStageChange,
+    handleStreamComplete,
+  );
 
   const handleRankChange = useCallback(() => {
     setRankIndex((prev) => (prev >= RANKS.length - 1 ? 0 : prev + 1));
@@ -132,13 +153,15 @@ export default function Config() {
         epochs,
         false, // fullfinetune - can be made configurable later
         session.session.token,
-        abortController.signal
+        abortController.signal,
       );
 
       // Verify jobId from response headers matches our calculation
       const responseJobId = response.headers.get("X-Job-Id");
       if (responseJobId && responseJobId !== nextJobId) {
-        console.warn(`JobId mismatch: calculated ${nextJobId}, received ${responseJobId}. Using received value.`);
+        console.warn(
+          `JobId mismatch: calculated ${nextJobId}, received ${responseJobId}. Using received value.`,
+        );
         setJobId(responseJobId);
       }
 
@@ -147,7 +170,7 @@ export default function Config() {
       // Stage will be updated to "running" by useTrainingLogs when stream starts
     } catch (error: any) {
       // Don't show error if request was aborted (user canceled)
-      if (error.name === 'AbortError' || abortController.signal.aborted) {
+      if (error.name === "AbortError" || abortController.signal.aborted) {
         console.log("Training request was canceled");
         setStage("idle");
         setJobId("");
@@ -197,18 +220,18 @@ export default function Config() {
       setError("Not authenticated");
       return;
     }
-    
+
     // Abort any ongoing fetch request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    
+
     // jobId should be available from response headers
     // Since jobs are only created when they complete, we can't look them up in the database
     const cancelJobId = jobId;
     const cancelUserId = userId || session.user.id;
-    
+
     if (!cancelJobId || !cancelUserId) {
       // If no jobId, just reset state (request might not have started yet)
       setStage("idle");
@@ -218,12 +241,16 @@ export default function Config() {
       setLogs([]);
       return;
     }
-    
+
     try {
       setError(null);
       setStage("cancelling");
       setLogs([]);
-      await trainingApi.cancelTraining(cancelUserId, cancelJobId, session.session.token);
+      await trainingApi.cancelTraining(
+        cancelUserId,
+        cancelJobId,
+        session.session.token,
+      );
       setStage("idle");
       setUserId("");
       setJobId("");
@@ -254,19 +281,21 @@ export default function Config() {
     setStage("idle");
   }, [userId, jobId, session?.session?.token]);
 
-  const handleEpochsChange = useCallback((event: any, newValue: number | number[]) => {
-    const numValue = Array.isArray(newValue) ? newValue[0] : newValue;
-    let clampedValue: number;
-    if (numValue <= 1) {
-      clampedValue = 1;
-    } else if (numValue < 10) {
-      clampedValue = 1;
-    } else {
-      clampedValue = Math.round(numValue / 10) * 10;
-    }
-    setEpochs(clampedValue);
-  }, []);
-
+  const handleEpochsChange = useCallback(
+    (event: any, newValue: number | number[]) => {
+      const numValue = Array.isArray(newValue) ? newValue[0] : newValue;
+      let clampedValue: number;
+      if (numValue <= 1) {
+        clampedValue = 1;
+      } else if (numValue < 10) {
+        clampedValue = 1;
+      } else {
+        clampedValue = Math.round(numValue / 10) * 10;
+      }
+      setEpochs(clampedValue);
+    },
+    [],
+  );
 
   // Jobs will be fetched by JobsDropdown and passed via handleJobsFetched callback
   // No need to fetch here to avoid duplicate API calls
@@ -315,13 +344,13 @@ export default function Config() {
       "No Code VOS Fine-Tuning",
       "Fine-Tune Your Model Below",
     ],
-    []
+    [],
   );
 
   // Typing effects - both start simultaneously
   const { displayedText: titleText } = useCyclingTypingEffect(titlePhrases);
   const { displayedText: descriptionText } = useTypingEffect(
-    "This tool enables you to fine-tune SAM2 using LoRA. Select your configuration below by clicking the buttons. When ready to train, click train."
+    "This tool enables you to fine-tune SAM2 using LoRA. Select your configuration below by clicking the buttons. When ready to train, click train.",
   );
 
   return (
@@ -332,19 +361,22 @@ export default function Config() {
         </div>
       )}
       <h1 className="text-2xl lg:text-4xl text-center w-full mx-auto my-4">
-        <span className="text-2xl lg:text-4xl">
+        <span className="flex items-center justify-center text-2xl lg:text-4xl">
           <span className="invisible" aria-hidden="true">
             "i"
           </span>
-          <span id="title-text" className="typing-text-visible">
-            {titleText}
+          <span id="title-text" className="typing-text-visible flex gap-x-2">
+            <span>{titleText}</span>
           </span>
           <span className="invisible" aria-hidden="true">
             "i"
           </span>
         </span>
       </h1>
-      <p id="description-text" className="typing-text-visible text-base lg:text-xl text-center my-4">
+      <p
+        id="description-text"
+        className="typing-text-visible text-base lg:text-xl text-center my-4"
+      >
         {descriptionText}
       </p>
 

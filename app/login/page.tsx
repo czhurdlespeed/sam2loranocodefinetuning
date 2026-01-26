@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/src/lib/auth-client";
-import Link from "next/link";
 import { FaGithub } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 
@@ -72,7 +71,10 @@ export default function LoginPage() {
       });
 
       if (signInResult.error) {
-        setError(signInResult.error.message || "Account created but failed to sign in. Please try signing in manually.");
+        setError(
+          signInResult.error.message ||
+            "Account created but failed to sign in. Please try signing in manually.",
+        );
         setLoading(false);
         return;
       }
@@ -139,7 +141,10 @@ export default function LoginPage() {
             )}
           </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={isSignUp ? handleEmailSignUp : handleEmailLogin}>
+        <form
+          className="mt-8 space-y-6"
+          onSubmit={isSignUp ? handleEmailSignUp : handleEmailLogin}
+        >
           {error && (
             <div className="bg-red-100 dark:bg-red-900 border border-red-400 text-red-700 dark:text-red-300 px-4 py-3 rounded">
               {error}
@@ -211,13 +216,14 @@ export default function LoginPage() {
                   ? "Creating account..."
                   : "Signing in..."
                 : isSignUp
-                ? "Sign up"
-                : "Sign in"}
+                  ? "Sign up"
+                  : "Sign in"}
             </button>
           </div>
           {isSignUp && (
             <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-              After signing up, your account will need admin approval before you can begin training SAM2!
+              After signing up, your account will need admin approval before you
+              can begin training SAM2!
             </p>
           )}
 
@@ -253,7 +259,6 @@ export default function LoginPage() {
               </button>
             </div>
           </div>
-
         </form>
       </div>
     </div>

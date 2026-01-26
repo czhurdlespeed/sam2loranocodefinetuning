@@ -103,7 +103,9 @@
 
 #mode-switcher.radio-switch:focus-within label:first-of-type::after,
 .radio-switch:focus-within label:first-of-type::after {
-  box-shadow: 0 0 0 2px var(--white), 0 0 0 4px var(--utk-orange);
+  box-shadow:
+    0 0 0 2px var(--white),
+    0 0 0 4px var(--utk-orange);
 }
 
 /* Making the switch UI */
@@ -142,12 +144,16 @@
   width: 4em;
 }
 
-#mode-switcher.radio-switch input:first-of-type:checked ~ label:first-of-type::after,
+#mode-switcher.radio-switch
+  input:first-of-type:checked
+  ~ label:first-of-type::after,
 .radio-switch input:first-of-type:checked ~ label:first-of-type::after {
   background: var(--utk-orange);
 }
 
-#mode-switcher.radio-switch input:first-of-type:checked ~ label:first-of-type::before,
+#mode-switcher.radio-switch
+  input:first-of-type:checked
+  ~ label:first-of-type::before,
 .radio-switch input:first-of-type:checked ~ label:first-of-type::before {
   transform: translateX(-2em);
 }

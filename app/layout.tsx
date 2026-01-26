@@ -25,12 +25,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased font-sans`}
-      >
-        {children}
-      </body>
+    <html
+      lang="en"
+      className={`${inter.className} ${jetbrainsMono.className} antialiased font-sans`}
+    >
+      <body>{children}</body>
     </html>
   );
 }

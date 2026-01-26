@@ -10,7 +10,7 @@ export default function Home() {
       <div className="max-w-6xl w-full px-8 mx-auto flex-1 flex flex-col justify-between">
         <Header />
         <Link
-          href="https://github.com/facebookresearch/sam2"
+          href="https://github.com/czhurdlespeed/modalsam2"
           target="_blank"
           rel="noopener noreferrer"
           className="mx-auto w-fit p-0"
