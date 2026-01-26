@@ -26,7 +26,18 @@ export const auth = betterAuth({
     },
   },
   baseURL: (() => {
-    const url = process.env.VERCEL_URL || process.env.BETTER_AUTH_URL;
+    // In production, prioritize PRODUCTION_URL to ensure custom domain is used
+    // This prevents OAuth redirect URI mismatches with Vercel URLs
+    let url: string | undefined;
+    if (process.env.NODE_ENV === "production") {
+      // Production: use PRODUCTION_URL if set, otherwise BETTER_AUTH_URL
+      // Explicitly ignore VERCEL_URL in production to use custom domain
+      url = process.env.PRODUCTION_URL || process.env.BETTER_AUTH_URL;
+    } else {
+      // Development: allow VERCEL_URL for preview deployments
+      url = process.env.PRODUCTION_URL || process.env.VERCEL_URL || process.env.BETTER_AUTH_URL;
+    }
+    
     if (!url) return undefined;
     // VERCEL_URL doesn't include protocol, so add https://
     if (url.startsWith("http://") || url.startsWith("https://")) {
@@ -37,16 +48,27 @@ export const auth = betterAuth({
   basePath: "/api/auth",
   trustedOrigins: (() => {
     const origins: string[] = [];
-    if (process.env.VERCEL_URL) {
+    
+    // Always include production domain
+    if (process.env.PRODUCTION_URL) {
+      const url = process.env.PRODUCTION_URL;
+      origins.push(url.startsWith("http://") ? url : `https://${url}`);
+    }
+    
+    // Include VERCEL_URL for preview deployments (not production)
+    if (process.env.VERCEL_URL && process.env.NODE_ENV !== "production") {
       origins.push(`https://${process.env.VERCEL_URL}`);
     }
+    
     if (process.env.BETTER_AUTH_URL) {
       const url = process.env.BETTER_AUTH_URL;
       origins.push(url.startsWith("http://") ? url : `https://${url}`);
     }
-    if (process.env.VERCEL_PROJECT_NAME) {
+    
+    if (process.env.VERCEL_PROJECT_NAME && process.env.NODE_ENV !== "production") {
       origins.push(`https://${process.env.VERCEL_PROJECT_NAME}-*.vercel.app`);
     }
+    
     origins.push("http://localhost:3000");
     origins.push("https://nocodefinetuning.calvinwetzel.dev");
     return origins;
