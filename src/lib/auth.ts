@@ -35,6 +35,22 @@ export const auth = betterAuth({
     return `https://${url}`;
   })(),
   basePath: "/api/auth",
+  trustedOrigins: (() => {
+    const origins: string[] = [];
+    if (process.env.VERCEL_URL) {
+      origins.push(`https://${process.env.VERCEL_URL}`);
+    }
+    if (process.env.BETTER_AUTH_URL) {
+      const url = process.env.BETTER_AUTH_URL;
+      origins.push(url.startsWith("http://") ? url : `https://${url}`);
+    }
+    if (process.env.VERCEL_PROJECT_NAME) {
+      origins.push(`https://${process.env.VERCEL_PROJECT_NAME}-*.vercel.app`);
+    }
+    origins.push("http://localhost:3000");
+    return origins;
+
+  })(),
   secret: (() => {
     const secret = process.env.BETTER_AUTH_SECRET;
     if (!secret && process.env.NODE_ENV === "production") {
