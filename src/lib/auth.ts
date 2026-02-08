@@ -2,8 +2,8 @@ import { betterAuth } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "../db"; // Use relative import for CLI compatibility
-import { user } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { user, account } from "../db/schema";
+import { eq, and, gt } from "drizzle-orm";
 import { sendSignupNotification } from "./email";
 
 export const auth = betterAuth({
@@ -17,12 +17,13 @@ export const auth = betterAuth({
   },
   socialProviders: {
     github: {
-      clientId: process.env.BETTER_AUTH_GITHUB_CLIENT_ID || "",
-      clientSecret: process.env.BETTER_AUTH_GITHUB_CLIENT_SECRET || "",
+      // Use dev credentials when not on Vercel (VERCEL_ENV unset); otherwise use prod
+      clientId: process.env.VERCEL_ENV ? process.env.BETTER_AUTH_GITHUB_CLIENT_ID! : process.env.BETTER_AUTH_GITHUB_CLIENT_ID_DEV!,
+      clientSecret: process.env.VERCEL_ENV ? process.env.BETTER_AUTH_GITHUB_CLIENT_SECRET! : process.env.BETTER_AUTH_GITHUB_CLIENT_SECRET_DEV!,
     },
     google: {
-      clientId: process.env.BETTER_AUTH_GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.BETTER_AUTH_GOOGLE_CLIENT_SECRET || "",
+      clientId: process.env.VERCEL_ENV ? process.env.BETTER_AUTH_GOOGLE_CLIENT_ID! : process.env.BETTER_AUTH_GOOGLE_CLIENT_ID_DEV!,
+      clientSecret: process.env.VERCEL_ENV ? process.env.BETTER_AUTH_GOOGLE_CLIENT_SECRET! : process.env.BETTER_AUTH_GOOGLE_CLIENT_SECRET_DEV!,
     },
   },
   baseURL: (() => {
@@ -87,9 +88,9 @@ export const auth = betterAuth({
       }
 
       try {
-        // Optimize: Only query database if we suspect this is a new signup
-        // For OAuth callbacks, better-auth creates the user before this hook runs
-        // So we can check the createdAt timestamp to determine if it's truly new
+        // Only process true signups (email or OAuth), not sign-ins.
+        // For email: path is /sign-up/email. For OAuth: path includes /callback/;
+        // we distinguish new OAuth signups from returning OAuth sign-ins below.
         const dbUser = await db.query.user.findFirst({
           where: (users, { eq }) => eq(users.id, newUser.id),
           columns: {
@@ -103,15 +104,31 @@ export const auth = betterAuth({
           return; // User doesn't exist (shouldn't happen)
         }
 
-        // Check if user was just created (within last 10 seconds)
-        // This distinguishes new signups from existing user logins
-        const userCreatedAt = dbUser.createdAt;
         const now = new Date();
-        const secondsSinceCreation = (now.getTime() - userCreatedAt.getTime()) / 1000;
-        const isNewUser = secondsSinceCreation < 10;
+        const tenSecondsAgo = new Date(now.getTime() - 10 * 1000);
 
-        // Only process if this is a new user signup and not already approved
-        if (isNewUser && !dbUser.approved) {
+        // New signup = user row created very recently (email or OAuth signup)
+        const userCreatedRecently =
+          dbUser.createdAt.getTime() > tenSecondsAgo.getTime();
+
+        // For OAuth callbacks, also treat as signup if an account was just created
+        // (covers cases where user creation timing differs from session creation)
+        let accountCreatedRecently = false;
+        if (isOAuthCallback) {
+          const recentAccount = await db.query.account.findFirst({
+            where: and(
+              eq(account.userId, newUser.id),
+              gt(account.createdAt, tenSecondsAgo)
+            ),
+            columns: { id: true },
+          });
+          accountCreatedRecently = !!recentAccount;
+        }
+
+        const isNewSignup = userCreatedRecently || accountCreatedRecently;
+
+        // Only process if this is a new signup and not already approved
+        if (isNewSignup && !dbUser.approved) {
           // Ensure user is set to unapproved (idempotent operation)
           await db
             .update(user)
