@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
+            value: "camera=(self), microphone=(self), geolocation=()",
           },
           {
             key: "Strict-Transport-Security",
@@ -39,29 +39,46 @@ const nextConfig: NextConfig = {
               const isDev = process.env.NODE_ENV === "development";
               const isPreview = process.env.VERCEL_ENV === "preview";
 
-              // Base CSP directives
+              // LiveKit agent embed script + frames (must match LIVEKIT_EMBED_ORIGIN used by /api/embed-script)
+              const liveKitEmbedOrigin =
+                process.env.LIVEKIT_EMBED_ORIGIN ||
+                "https://agent-starter-embed-git-preview-calvin-wetzels-projects.vercel.app";
+
+              // R2 bucket for agent intro video
+              const r2MediaOrigin =
+                "https://pub-607355d54eab447aaf8548522b8bdf61.r2.dev";
+
+              // Base CSP directives (include LiveKit embed in script-src and frame-src)
               const directives = [
                 "default-src 'self'",
-                "script-src 'self' 'unsafe-inline'",
+                "script-src 'self' 'unsafe-inline' " + liveKitEmbedOrigin,
                 "style-src 'self' 'unsafe-inline'",
                 "img-src 'self' data: https:",
                 "font-src 'self' data:",
-                "connect-src 'self' https:",
+                "connect-src 'self' https: wss:",
+                "media-src 'self' " + r2MediaOrigin,
                 "frame-ancestors 'none'",
-                "frame-src 'self'",
+                "frame-src 'self' " + liveKitEmbedOrigin,
                 "base-uri 'self'",
                 "form-action 'self'",
               ];
 
               // Allow Vercel Live feedback script and frames in preview environments
               if (isPreview) {
-                directives[1] = "script-src 'self' 'unsafe-inline' https://vercel.live";
-                directives[7] = "frame-src 'self' https://vercel.live";
+                directives[1] =
+                  "script-src 'self' 'unsafe-inline' https://vercel.live " +
+                  liveKitEmbedOrigin;
+                directives[7] =
+                  "frame-src 'self' https://vercel.live " + liveKitEmbedOrigin;
               }
 
-              // Allow localhost connections in development
+              // Development: allow eval (React dev bundles) and localhost connections
               if (isDev) {
-                directives[5] = "connect-src 'self' https: http://localhost:* ws://localhost:* ws://127.0.0.1:*";
+                directives[1] =
+                  "script-src 'self' 'unsafe-inline' 'unsafe-eval' " +
+                  liveKitEmbedOrigin;
+                directives[5] =
+                  "connect-src 'self' https: wss: http://localhost:* ws://localhost:* ws://127.0.0.1:*";
               }
 
               return directives.join("; ");

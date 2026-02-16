@@ -48,7 +48,6 @@ async function createUser(email: string, name: string, password: string) {
         // Generate UUID for user
         const userId = randomUUID();
 
-        console.log("Hashing password...");
         const hashedPassword = await hash(password, 12);
 
         // Create user and account in a transaction
@@ -76,11 +75,6 @@ async function createUser(email: string, name: string, password: string) {
                 updatedAt: new Date(),
             });
         });
-
-        console.log("✅ User created successfully!");
-        console.log(`   User ID (UUID): ${userId}`);
-        console.log(`   Email: ${email}`);
-        console.log(`   Name: ${name}`);
     } catch (error: any) {
         console.error("Error creating user:", error.message);
         process.exit(1);

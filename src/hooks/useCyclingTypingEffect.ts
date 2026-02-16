@@ -62,11 +62,8 @@ export function useCyclingTypingEffect(
           }
         }
       }
-    } catch (error) {
-      console.warn(
-        "Error reading sessionStorage for typingEffectShown:",
-        error
-      );
+    } catch {
+      // sessionStorage may be unavailable
     }
   }, [phrases]);
 
@@ -145,11 +142,8 @@ export function useCyclingTypingEffect(
           if (typeof window !== "undefined") {
             sessionStorage.setItem("typingEffectShown", "true");
           }
-        } catch (error) {
-          console.warn(
-            "Error writing to sessionStorage for typingEffectShown:",
-            error
-          );
+        } catch {
+          // sessionStorage may be unavailable
         }
         const element = document.querySelector("#title-text");
         if (element) {

@@ -46,11 +46,8 @@ export function useTypingEffect(
           }
         }
       }
-    } catch (error) {
-      console.warn(
-        "Error reading sessionStorage for typingEffectShown:",
-        error
-      );
+    } catch {
+      // sessionStorage may be unavailable
     }
   }, [text]);
 
@@ -105,11 +102,8 @@ export function useTypingEffect(
           if (typeof window !== "undefined") {
             sessionStorage.setItem("typingEffectShown", "true");
           }
-        } catch (error) {
-          console.warn(
-            "Error writing to sessionStorage for typingEffectShown:",
-            error
-          );
+        } catch {
+          // sessionStorage may be unavailable
         }
         const element = document.querySelector("#description-text");
         if (element) {

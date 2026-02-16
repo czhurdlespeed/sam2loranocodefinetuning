@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { LiveKitAgentEmbed } from "@/src/components/LiveKitEmbed";
 import "./globals.css";
 
 const inter = Inter({
@@ -29,7 +30,10 @@ export default function RootLayout({
       lang="en"
       className={`${inter.className} ${jetbrainsMono.className} antialiased font-sans`}
     >
-      <body>{children}</body>
+      <body>
+        {children}
+        <LiveKitAgentEmbed />
+      </body>
     </html>
   );
 }

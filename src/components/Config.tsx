@@ -159,9 +159,6 @@ export default function Config() {
       // Verify jobId from response headers matches our calculation
       const responseJobId = response.headers.get("X-Job-Id");
       if (responseJobId && responseJobId !== nextJobId) {
-        console.warn(
-          `JobId mismatch: calculated ${nextJobId}, received ${responseJobId}. Using received value.`,
-        );
         setJobId(responseJobId);
       }
 
@@ -171,7 +168,6 @@ export default function Config() {
     } catch (error: any) {
       // Don't show error if request was aborted (user canceled)
       if (error.name === "AbortError" || abortController.signal.aborted) {
-        console.log("Training request was canceled");
         setStage("idle");
         setJobId("");
         setUserId("");
