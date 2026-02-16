@@ -35,7 +35,9 @@ export const auth = betterAuth({
       process.env.NEXT_PUBLIC_BETTER_AUTH_URL = url;
       process.env.BETTER_AUTH_URL = url;
     } else if (process.env.VERCEL_ENV === "preview") {
-      url = `https://${process.env.VERCEL_URL}`;
+      // VERCEL_URL is just the domain, so prepend https://
+      const vercelUrl = process.env.VERCEL_URL;
+      url = vercelUrl?.startsWith("http") ? vercelUrl : `https://${vercelUrl}`;
       process.env.NEXT_PUBLIC_BETTER_AUTH_URL = url;
       process.env.BETTER_AUTH_URL = url;
     } else {
@@ -51,14 +53,27 @@ export const auth = betterAuth({
   trustedOrigins: (() => {
     const origins: string[] = [];
 
-    // Always include production domain
     if (process.env.VERCEL_ENV === "production") {
       const url = process.env.PRODUCTION_URL!;
-      origins.push(url);
+      // Normalize: remove trailing slash, ensure it's a valid origin
+      origins.push(url.replace(/\/$/, ""));
     } else if (process.env.VERCEL_ENV === "preview") {
-      origins.push(`https://${process.env.VERCEL_URL}`);
+      // Normalize VERCEL_URL: ensure it starts with https:// and has no trailing slash
+      const vercelUrl = process.env.VERCEL_URL;
+      if (vercelUrl) {
+        let normalizedUrl = vercelUrl.startsWith("http") 
+          ? vercelUrl 
+          : `https://${vercelUrl}`;
+        normalizedUrl = normalizedUrl.replace(/\/$/, "");
+        origins.push(normalizedUrl);
+      }
+      // Also include production URL in preview for potential redirects
+      if (process.env.PRODUCTION_URL) {
+        origins.push(process.env.PRODUCTION_URL.replace(/\/$/, ""));
+      }
     } else {
-      origins.push(process.env.DEV_URL!);
+      const devUrl = process.env.DEV_URL!;
+      origins.push(devUrl.replace(/\/$/, ""));
     }
     return origins;
 

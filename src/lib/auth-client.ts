@@ -8,7 +8,9 @@ function getBaseURL(): string | undefined {
   if (process.env.VERCEL_ENV === "production") {
     return process.env.PRODUCTION_URL;
   } else if (process.env.VERCEL_ENV === "preview") {
-    return `https://${process.env.VERCEL_URL}`;
+    // VERCEL_URL is just the domain, so prepend https://
+    const vercelUrl = process.env.VERCEL_URL;
+    return vercelUrl?.startsWith("http") ? vercelUrl : `https://${vercelUrl}`;
   } else {
     return process.env.DEV_URL;
   }
