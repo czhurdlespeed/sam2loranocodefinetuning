@@ -50,7 +50,7 @@ export const auth = betterAuth({
     return `https://${url}`;
   })(),
   basePath: "/api/auth",
-  trustedOrigins: (() => {
+  trustedOrigins: async (request) => {
     const origins: string[] = [];
 
     if (process.env.VERCEL_ENV === "production") {
@@ -58,7 +58,20 @@ export const auth = betterAuth({
       // Normalize: remove trailing slash, ensure it's a valid origin
       origins.push(url.replace(/\/$/, ""));
     } else if (process.env.VERCEL_ENV === "preview") {
-      // Normalize VERCEL_URL: ensure it starts with https:// and has no trailing slash
+      // For preview deployments, dynamically allow the request origin
+      // This handles dynamic preview URLs that Vercel generates
+      if (request) {
+        const origin = request.headers.get("origin");
+        if (origin) {
+          const normalizedOrigin = origin.replace(/\/$/, "");
+          // Check if it's a Vercel preview URL pattern and allow it
+          if (normalizedOrigin.match(/^https:\/\/.*\.vercel\.app$/)) {
+            origins.push(normalizedOrigin);
+          }
+        }
+      }
+      
+      // Also include the specific VERCEL_URL if available
       const vercelUrl = process.env.VERCEL_URL;
       if (vercelUrl) {
         let normalizedUrl = vercelUrl.startsWith("http") 
@@ -67,6 +80,7 @@ export const auth = betterAuth({
         normalizedUrl = normalizedUrl.replace(/\/$/, "");
         origins.push(normalizedUrl);
       }
+      
       // Also include production URL in preview for potential redirects
       if (process.env.PRODUCTION_URL) {
         origins.push(process.env.PRODUCTION_URL.replace(/\/$/, ""));
@@ -75,9 +89,9 @@ export const auth = betterAuth({
       const devUrl = process.env.DEV_URL!;
       origins.push(devUrl.replace(/\/$/, ""));
     }
+    
     return origins;
-
-  })(),
+  },
   secret: (() => {
     const secret = process.env.BETTER_AUTH_SECRET;
     return secret;
