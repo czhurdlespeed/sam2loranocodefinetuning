@@ -12,34 +12,8 @@ const SCRIPT_ID = "livekit-agent-embed-popup";
 
 /** Remove the embed script and all UI the embed may have created so a fresh inject doesn't layer on top. */
 function removeExistingEmbed(): void {
-  const script = document.getElementById(SCRIPT_ID);
-  script?.remove();
-
-  const selectors = [
-    "[data-livekit]",
-    "[id^='livekit']",
-    "[id*='livekit']",
-    "[id*='embed-popup']",
-    "[id*='agent-embed']",
-    "[class*='lk-']",
-    "[class*='livekit']",
-  ];
-  selectors.forEach((sel) => {
-    try {
-      document.querySelectorAll(sel).forEach((el) => el.remove());
-    } catch {
-      // ignore invalid selector
-    }
-  });
-
-  // Embed often renders in an iframe (same-origin or embed origin)
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  document.querySelectorAll("iframe").forEach((iframe) => {
-    const src = iframe.getAttribute("src") ?? "";
-    if (src.startsWith(origin) || src.includes("/embed") || src.includes("embed-popup")) {
-      iframe.remove();
-    }
-  });
+  document.getElementById(SCRIPT_ID)?.remove();
+  document.getElementById("lk-embed-wrapper")?.remove();
 }
 
 export function LiveKitAgentEmbed() {
@@ -53,31 +27,22 @@ export function LiveKitAgentEmbed() {
     const name = session?.user?.name ?? undefined;
     const email =
       typeof session?.user?.email === "string" ? session.user.email : undefined;
-
-    const existingScript = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
     const userIdChanged = lastUserIdRef.current !== userId;
 
-    // When user logs in or out, tear down the old embed completely so the new one doesn't layer on top
-    if (existingScript && userIdChanged && lastUserIdRef.current !== undefined) {
+    // On login or logout: remove old script and all embed UI, then inject a fresh script.
+    if (userIdChanged) {
       removeExistingEmbed();
     }
-
     lastUserIdRef.current = userId;
 
+    const existingScript = document.getElementById(SCRIPT_ID);
     if (existingScript && !userIdChanged) {
-      // Script exists and user ID hasn't changed - just update attributes
+      // Same user: only update name/email attributes
       existingScript.setAttribute("data-lk-user-id", userId);
-      if (name) {
-        existingScript.setAttribute("data-lk-name", name);
-      } else {
-        existingScript.removeAttribute("data-lk-name");
-      }
-      if (email) {
-        existingScript.setAttribute("data-lk-email", email);
-      } else {
-        existingScript.removeAttribute("data-lk-email");
-      }
-      // Update sandbox ID in case origin changed
+      if (name) existingScript.setAttribute("data-lk-name", name);
+      else existingScript.removeAttribute("data-lk-name");
+      if (email) existingScript.setAttribute("data-lk-email", email);
+      else existingScript.removeAttribute("data-lk-email");
       existingScript.setAttribute(
         "data-lk-sandbox-id",
         typeof window !== "undefined" ? window.location.origin : "",
@@ -85,24 +50,32 @@ export function LiveKitAgentEmbed() {
       return;
     }
 
-    // Script doesn't exist or was removed - create and inject it
-    const script = document.createElement("script");
-    script.id = SCRIPT_ID;
-    // Use same-origin URL so the browser never hits the protected embed directly
-    script.src =
-      typeof window !== "undefined"
-        ? `${window.location.origin}${EMBED_SCRIPT_URL}`
-        : EMBED_SCRIPT_URL;
-    script.setAttribute(
-      "data-lk-sandbox-id",
-      typeof window !== "undefined" ? window.location.origin : "",
-    );
-    script.setAttribute("data-lk-user-id", userId);
-    if (name) script.setAttribute("data-lk-name", name);
-    if (email) script.setAttribute("data-lk-email", email);
-    script.async = true;
+    // No script in document (first load or we just removed it on login/logout) — inject new one
+    const inject = () => {
+      if (document.getElementById(SCRIPT_ID)) return; // avoid duplicate if effect re-runs
+      const script = document.createElement("script");
+      script.id = SCRIPT_ID;
+      script.src =
+        typeof window !== "undefined"
+          ? `${window.location.origin}${EMBED_SCRIPT_URL}`
+          : EMBED_SCRIPT_URL;
+      script.setAttribute(
+        "data-lk-sandbox-id",
+        typeof window !== "undefined" ? window.location.origin : "",
+      );
+      script.setAttribute("data-lk-user-id", userId);
+      if (name) script.setAttribute("data-lk-name", name);
+      if (email) script.setAttribute("data-lk-email", email);
+      script.async = true;
+      document.body.appendChild(script);
+    };
 
-    document.body.appendChild(script);
+    if (userIdChanged) {
+      // Defer inject to next tick so old embed’s DOM and timers are fully cleared
+      const t = setTimeout(inject, 0);
+      return () => clearTimeout(t);
+    }
+    inject();
   }, [session?.user?.id, session?.user?.name, session?.user?.email, isPending]);
 
   return null;
