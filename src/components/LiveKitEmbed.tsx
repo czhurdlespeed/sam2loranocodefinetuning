@@ -10,6 +10,38 @@ const EMBED_SCRIPT_URL = "/api/embed-script";
 const DEFAULT_USER_ID = "123";
 const SCRIPT_ID = "livekit-agent-embed-popup";
 
+/** Remove the embed script and all UI the embed may have created so a fresh inject doesn't layer on top. */
+function removeExistingEmbed(): void {
+  const script = document.getElementById(SCRIPT_ID);
+  script?.remove();
+
+  const selectors = [
+    "[data-livekit]",
+    "[id^='livekit']",
+    "[id*='livekit']",
+    "[id*='embed-popup']",
+    "[id*='agent-embed']",
+    "[class*='lk-']",
+    "[class*='livekit']",
+  ];
+  selectors.forEach((sel) => {
+    try {
+      document.querySelectorAll(sel).forEach((el) => el.remove());
+    } catch {
+      // ignore invalid selector
+    }
+  });
+
+  // Embed often renders in an iframe (same-origin or embed origin)
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  document.querySelectorAll("iframe").forEach((iframe) => {
+    const src = iframe.getAttribute("src") ?? "";
+    if (src.startsWith(origin) || src.includes("/embed") || src.includes("embed-popup")) {
+      iframe.remove();
+    }
+  });
+}
+
 export function LiveKitAgentEmbed() {
   const { data: session, isPending } = useSession();
   const lastUserIdRef = useRef<string | undefined>(undefined);
@@ -25,14 +57,9 @@ export function LiveKitAgentEmbed() {
     const existingScript = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
     const userIdChanged = lastUserIdRef.current !== userId;
 
-    // If user ID changed from default to real user (or vice versa), re-inject script
-    // This ensures the embed initializes with the correct user context
+    // When user logs in or out, tear down the old embed completely so the new one doesn't layer on top
     if (existingScript && userIdChanged && lastUserIdRef.current !== undefined) {
-      // Remove old script and any LiveKit embed elements
-      existingScript.remove();
-      // Clear any LiveKit popup/embed that might have been created
-      const livekitElements = document.querySelectorAll('[data-livekit], [id^="livekit"]');
-      livekitElements.forEach((el) => el.remove());
+      removeExistingEmbed();
     }
 
     lastUserIdRef.current = userId;
