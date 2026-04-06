@@ -5,6 +5,8 @@ import { trainingJob } from "@/src/db/schema";
 import { eq } from "drizzle-orm";
 import * as logfire from "logfire";
 
+export const maxDuration = 60; // Vercel Hobby plan max
+
 // Modal endpoint URLs - validate at startup
 const MODAL_TRAIN_URL = process.env.MODAL_TRAIN_URL;
 const MODAL_KEY = process.env.MODAL_KEY;
@@ -164,31 +166,14 @@ export async function POST(req: NextRequest) {
         num_epochs: epochs,
       };
 
-      logfire.info(`${session.user.name} is sending the following request to Modal: ${JSON.stringify(modalRequest)}`);
+      logfire.info(`${session.user.name} is sending a training request to Modal`, { modalRequest });
 
-      // Proxy request to Modal with streaming
-      const modalResponse = await fetch(MODAL_TRAIN_URL!, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Modal-Key": MODAL_KEY!,
-          "Modal-Secret": MODAL_SECRET!,
-        },
-        body: JSON.stringify(modalRequest),
-      });
+      // Stream response immediately so the client gets feedback while Modal spins up
+      const { readable, writable } = new TransformStream();
+      const writer = writable.getWriter();
+      const encoder = new TextEncoder();
 
-      if (!modalResponse.ok) {
-        logfire.error(`Modal API error: ${modalResponse.status}`);
-        // No job to delete - we don't create jobs until they complete successfully
-        const errorText = await modalResponse.text();
-        return NextResponse.json(
-          { error: `Modal API error: ${errorText}` },
-          { status: modalResponse.status }
-        );
-      }
-
-      // Return streaming response with job info in headers
-      return new Response(modalResponse.body, {
+      const response = new Response(readable, {
         headers: {
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
@@ -197,10 +182,62 @@ export async function POST(req: NextRequest) {
           "X-User-Id": session.user.id,
         },
       });
+
+      // Background: send keepalives while waiting for Modal, then pipe Modal stream
+      (async () => {
+        try {
+          await writer.write(encoder.encode('data: {"status":"pending","log":"Submitting job to Modal..."}\n\n'));
+
+          // Send keepalive every 15s while waiting for Modal container spin-up
+          const keepaliveInterval = setInterval(async () => {
+            try {
+              await writer.write(encoder.encode('data: {"status":"pending","log":"Waiting for GPU container to start..."}\n\n'));
+            } catch { /* writer closed */ }
+          }, 15000);
+
+          const modalResponse = await fetch(MODAL_TRAIN_URL!, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Modal-Key": MODAL_KEY!,
+              "Modal-Secret": MODAL_SECRET!,
+            },
+            body: JSON.stringify(modalRequest),
+          });
+
+          clearInterval(keepaliveInterval);
+
+          if (!modalResponse.ok) {
+            const errorText = await modalResponse.text();
+            logfire.error(`Modal API error: ${modalResponse.status}`);
+            await writer.write(encoder.encode(`data: {"status":"failed","log":"Modal API error: ${modalResponse.status}"}\n\n`));
+            await writer.close();
+            return;
+          }
+
+          // Pipe Modal's SSE stream through to the client
+          const reader = modalResponse.body?.getReader();
+          if (reader) {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              await writer.write(value);
+            }
+          }
+          await writer.close();
+        } catch (error) {
+          logfire.error(`Streaming error: ${error}`);
+          try {
+            await writer.write(encoder.encode('data: {"status":"failed","log":"Connection error"}\n\n'));
+            await writer.close();
+          } catch { /* already closed */ }
+        }
+      })();
+
+      return response;
     } catch (error: any) {
       logfire.error(`Error in train endpoint: ${error}`);
       console.error("Error in train endpoint:", error);
-      // No job to delete - we don't create jobs until they complete successfully
       // Don't leak internal error details to client
       return NextResponse.json(
         { error: "Internal server error" },
